@@ -1,25 +1,31 @@
 package com.greenfox.springadvanced.Controllers;
 
+import com.greenfox.springadvanced.Models.AuthenticationRequest;
+import com.greenfox.springadvanced.Models.AuthenticationResponse;
 import com.greenfox.springadvanced.Models.DAO.MovieRetrofitDAO;
 import com.greenfox.springadvanced.Models.DAO.RetrofitMovieInstance;
-import com.greenfox.springadvanced.Models.DTOS.MovieDTO;
 import com.greenfox.springadvanced.Models.Movie;
 import com.greenfox.springadvanced.Repositories.MovieRepository;
+import com.greenfox.springadvanced.Security.JwtUtil;
 import com.greenfox.springadvanced.Service.MovieService;
+import org.apache.catalina.security.SecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.web.bind.annotation.*;
 import retrofit2.Call;
 import retrofit2.Response;
 import retrofit2.Retrofit;
-import retrofit2.http.GET;
-import retrofit2.http.Path;
 
 import java.io.IOException;
+
+@Import(SecurityConfig.class)
 
 @org.springframework.web.bind.annotation.RestController
 public class RestController {
@@ -28,10 +34,21 @@ public class RestController {
     private final MovieService movieService;
 
     @Autowired
-    public RestController(MovieRepository movieRepository, MovieService movieService) {
+    private  AuthenticationManager authenticationManager;
+
+    private UserDetailsService userDetailsService;
+
+    @Autowired
+    private JwtUtil jwtTokenUtil;
+
+    @Autowired
+    public RestController(MovieRepository movieRepository, MovieService movieService, UserDetailsService userDetailsService) {
         this.movieRepository = movieRepository;
         this.movieService = movieService;
+        this.userDetailsService = userDetailsService;
     }
+
+
 
 //    @GetMapping("/movie/{id}")
 //    public ResponseEntity movies(@PathVariable Integer id) {
@@ -62,6 +79,19 @@ public class RestController {
         return "<h1> hello World </h1>";
     }
 
+    @PostMapping("/authenticate")
+    public ResponseEntity createAuthenticationToken(@RequestBody AuthenticationRequest authenticationRequest) throws Exception{
+        try{
+        authenticationManager.authenticate(
+        new UsernamePasswordAuthenticationToken(authenticationRequest.getUsername(), authenticationRequest.getPassword()));
+        }catch (BadCredentialsException e) {
+            throw  new Exception("Incorrect username or password", e);
+        }
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getUsername());
+        final String jwt = jwtTokenUtil.generateToken(userDetails);
+
+        return ResponseEntity.ok(new AuthenticationResponse(jwt));
+    }
 
 
 
